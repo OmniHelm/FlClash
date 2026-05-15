@@ -1,0 +1,205 @@
+name: sync upstream portable
+
+on:
+  workflow_dispatch:
+    inputs:
+      upstream_repository:
+        description: Upstream repository to sync from
+        required: false
+        default: chen08209/FlClash
+      upstream_branch:
+        description: Upstream branch to sync from
+        required: false
+        default: main
+  schedule:
+    - cron: '0 */6 * * *'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-upstream-portable
+  cancel-in-progress: false
+
+env:
+  DEFAULT_UPSTREAM_REPOSITORY: chen08209/FlClash
+  DEFAULT_UPSTREAM_BRANCH: main
+
+jobs:
+  sync-upstream:
+    name: Sync upstream into review branch
+    runs-on: ubuntu-latest
+    outputs:
+      sync_needed: ${{ steps.sync.outputs.sync_needed }}
+      branch_name: ${{ steps.sync.outputs.branch_name }}
+      upstream_sha: ${{ steps.sync.outputs.upstream_sha }}
+      upstream_short_sha: ${{ steps.sync.outputs.upstream_short_sha }}
+      pr_url: ${{ steps.pr.outputs.pr_url }}
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Sync upstream
+        id: sync
+        env:
+          UPSTREAM_REPOSITORY: ${{ github.event.inputs.upstream_repository || env.DEFAULT_UPSTREAM_REPOSITORY }}
+          UPSTREAM_BRANCH: ${{ github.event.inputs.upstream_branch || env.DEFAULT_UPSTREAM_BRANCH }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git remote add upstream "https://github.com/${UPSTREAM_REPOSITORY}.git"
+          git fetch upstream "${UPSTREAM_BRANCH}" --tags
+
+          upstream_ref="upstream/${UPSTREAM_BRANCH}"
+          upstream_sha="$(git rev-parse "${upstream_ref}")"
+          upstream_short_sha="$(git rev-parse --short "${upstream_ref}")"
+          safe_branch="${UPSTREAM_BRANCH//\//-}"
+          branch_name="codex/sync-upstream-${safe_branch}"
+
+          {
+            echo "upstream_sha=${upstream_sha}"
+            echo "upstream_short_sha=${upstream_short_sha}"
+            echo "branch_name=${branch_name}"
+          } >> "$GITHUB_OUTPUT"
+
+          if git merge-base --is-ancestor "${upstream_sha}" HEAD; then
+            echo "sync_needed=false" >> "$GITHUB_OUTPUT"
+            echo "Fork main already contains ${UPSTREAM_REPOSITORY}@${upstream_short_sha}."
+            exit 0
+          fi
+
+          if git ls-remote --exit-code --heads origin "${branch_name}" >/dev/null 2>&1; then
+            git fetch origin "${branch_name}"
+            if git merge-base --is-ancestor "${upstream_sha}" "origin/${branch_name}"; then
+              echo "sync_needed=false" >> "$GITHUB_OUTPUT"
+              echo "Existing sync branch already contains ${UPSTREAM_REPOSITORY}@${upstream_short_sha}."
+              exit 0
+            fi
+          fi
+
+          git checkout -B "${branch_name}" HEAD
+
+          if ! git merge --no-edit --no-ff "${upstream_ref}"; then
+            echo "::error::Upstream merge has conflicts. Resolve them manually and rerun this workflow."
+            git status --short
+            exit 1
+          fi
+
+          if git diff --quiet origin/main.."${branch_name}"; then
+            echo "sync_needed=false" >> "$GITHUB_OUTPUT"
+            echo "Merge produced no fork-visible changes."
+            exit 0
+          fi
+
+          git push --force-with-lease origin "${branch_name}"
+          echo "sync_needed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Create or update pull request
+        id: pr
+        if: steps.sync.outputs.sync_needed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH_NAME: ${{ steps.sync.outputs.branch_name }}
+          UPSTREAM_SHA: ${{ steps.sync.outputs.upstream_sha }}
+          UPSTREAM_SHORT_SHA: ${{ steps.sync.outputs.upstream_short_sha }}
+          UPSTREAM_REPOSITORY: ${{ github.event.inputs.upstream_repository || env.DEFAULT_UPSTREAM_REPOSITORY }}
+          UPSTREAM_BRANCH: ${{ github.event.inputs.upstream_branch || env.DEFAULT_UPSTREAM_BRANCH }}
+        run: |
+          set -euo pipefail
+
+          title="Sync upstream ${UPSTREAM_REPOSITORY}@${UPSTREAM_SHORT_SHA}"
+          body="$(cat <<EOF
+          This PR syncs upstream ${UPSTREAM_REPOSITORY}/${UPSTREAM_BRANCH}.
+
+          Upstream commit: ${UPSTREAM_SHA}
+
+          After this PR is created, the workflow builds the Windows portable package
+          from the sync branch and uploads it as an Actions artifact for review.
+          EOF
+          )"
+
+          if pr_url="$(gh pr view "${BRANCH_NAME}" --json url --jq .url 2>/dev/null)"; then
+            gh pr edit "${BRANCH_NAME}" --title "${title}" --body "${body}"
+          else
+            pr_url="$(gh pr create \
+              --base main \
+              --head "${BRANCH_NAME}" \
+              --title "${title}" \
+              --body "${body}")"
+          fi
+
+          echo "pr_url=${pr_url}" >> "$GITHUB_OUTPUT"
+
+  build-windows-portable:
+    name: Build Windows portable package
+    needs: sync-upstream
+    if: needs.sync-upstream.outputs.sync_needed == 'true'
+    runs-on: Windows-2022
+    steps:
+      - name: Checkout sync branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.sync-upstream.outputs.branch_name }}
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.0'
+          cache-dependency-path: |
+            core/go.sum
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.35.7
+          cache: true
+
+      - name: Get Flutter Dependency
+        run: |
+          flutter --version
+          flutter pub get
+
+      - name: Build Windows portable package
+        run: dart setup.dart windows --arch amd64
+
+      - name: Upload Windows portable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifact-windows-portable-${{ needs.sync-upstream.outputs.upstream_short_sha }}
+          path: ./dist
+          overwrite: true
+
+  comment-build-result:
+    name: Comment portable build result
+    needs:
+      - sync-upstream
+      - build-windows-portable
+    if: always() && needs.sync-upstream.outputs.sync_needed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comment on pull request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ needs.sync-upstream.outputs.pr_url }}
+          BUILD_RESULT: ${{ needs.build-windows-portable.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ARTIFACT_NAME: artifact-windows-portable-${{ needs.sync-upstream.outputs.upstream_short_sha }}
+        run: |
+          set -euo pipefail
+
+          gh pr comment "${PR_URL}" --body "$(cat <<EOF
+          Windows portable build result: ${BUILD_RESULT}
+
+          Workflow run: ${RUN_URL}
+          Artifact: ${ARTIFACT_NAME}
+          EOF
+          )"
