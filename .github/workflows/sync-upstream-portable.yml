@@ -169,7 +169,7 @@ jobs:
           flutter pub get
 
       - name: Build Windows portable package
-        run: dart setup.dart windows --arch amd64
+        run: dart setup.dart windows --arch amd64 --env stable
 
       - name: Upload Windows portable artifact
         uses: actions/upload-artifact@v4
