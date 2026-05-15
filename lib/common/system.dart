@@ -44,6 +44,9 @@ class System {
   Future<bool> checkIsAdmin() async {
     final corePath = appPath.corePath.replaceAll(' ', '\\\\ ');
     if (system.isWindows) {
+      if (appPath.isPortable) {
+        return await windows?.checkIsElevated() ?? false;
+      }
       final result = await windows?.checkService();
       return result == WindowsHelperServiceStatus.running;
     } else if (system.isMacOS) {
@@ -75,6 +78,9 @@ class System {
     }
 
     if (system.isWindows) {
+      if (appPath.isPortable) {
+        return AuthorizeCode.error;
+      }
       final result = await windows?.registerService();
       if (result == true) {
         return AuthorizeCode.success;
@@ -208,11 +214,14 @@ class Windows {
   // }
 
   Future<WindowsHelperServiceStatus> checkService() async {
-    // final qcResult = await Process.run('sc', ['qc', appHelperService]);
-    // final qcOutput = qcResult.stdout.toString();
-    // if (qcResult.exitCode != 0 || !qcOutput.contains(appPath.helperPath)) {
-    //   return WindowsHelperServiceStatus.none;
-    // }
+    final qcResult = await Process.run('sc', ['qc', appHelperService]);
+    if (qcResult.exitCode != 0) {
+      return WindowsHelperServiceStatus.none;
+    }
+    final qcOutput = '${qcResult.stdout}\n${qcResult.stderr}';
+    if (!_containsPath(qcOutput, appPath.helperPath)) {
+      return WindowsHelperServiceStatus.presence;
+    }
     final result = await Process.run('sc', ['query', appHelperService]);
     if (result.exitCode != 0) {
       return WindowsHelperServiceStatus.none;
@@ -265,6 +274,21 @@ class Windows {
       delay: Duration(seconds: 1),
     );
     return res && retryStatus == WindowsHelperServiceStatus.running;
+  }
+
+  Future<bool> checkIsElevated() async {
+    final result = await Process.run('whoami', ['/groups'], runInShell: true);
+    final output = '${result.stdout}\n${result.stderr}';
+    return output.contains('S-1-16-12288') ||
+        output.contains('S-1-16-16384');
+  }
+
+  bool _containsPath(String output, String path) {
+    return _normalizePath(output).contains(_normalizePath(path));
+  }
+
+  String _normalizePath(String path) {
+    return path.toLowerCase().replaceAll('\\', '/').replaceAll('"', '');
   }
 
   Future<bool> registerTask(String appName) async {

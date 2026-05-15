@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
 
 import 'constant.dart';
+import 'path.dart';
 import 'system.dart';
 
 class AutoLaunch {
@@ -36,6 +37,12 @@ class AutoLaunch {
 
   Future<void> updateStatus(bool isAutoLaunch) async {
     if (kDebugMode) {
+      return;
+    }
+    if (appPath.isPortable) {
+      if (await isEnable) {
+        await disable();
+      }
       return;
     }
     if (await isEnable == isAutoLaunch) return;

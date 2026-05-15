@@ -21,7 +21,7 @@ class Window {
     if (!acquire) {
       exit(0);
     }
-    if (system.isWindows) {
+    if (system.isWindows && !appPath.isPortable) {
       protocol.register('clash');
       protocol.register('clashmeta');
       protocol.register('flclash');

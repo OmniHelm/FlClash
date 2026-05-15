@@ -3,6 +3,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:archive/archive.dart';
 import 'package:args/command_runner.dart';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart';
@@ -98,6 +99,8 @@ class Build {
   static String get coreName => 'FlClashCore';
 
   static String get libName => 'libclash';
+
+  static String get portableFlagFileName => 'portable.flag';
 
   static String get outDir => join(current, libName);
 
@@ -331,6 +334,58 @@ class Build {
       print('Failed to copy file: $e');
     }
   }
+
+  static Future<void> markWindowsZipPortable() async {
+    final distDir = Directory(distPath);
+    if (!await distDir.exists()) {
+      return;
+    }
+    await for (final entity in distDir.list(recursive: true)) {
+      if (entity is! File ||
+          extension(entity.path).toLowerCase() != '.zip' ||
+          !basename(entity.path).toLowerCase().contains('windows')) {
+        continue;
+      }
+      await _addPortableFlagToZip(entity);
+    }
+  }
+
+  static Future<void> _addPortableFlagToZip(File zipFile) async {
+    final archive = ZipDecoder().decodeBytes(await zipFile.readAsBytes());
+    final flagNames = archive.files
+        .where(
+          (file) =>
+              file.isFile &&
+              posix.basename(file.name).toLowerCase() ==
+                  '$appName.exe'.toLowerCase(),
+        )
+        .map((file) {
+          final parent = posix.dirname(file.name);
+          return parent == '.'
+              ? portableFlagFileName
+              : posix.join(parent, portableFlagFileName);
+        })
+        .toSet();
+    if (flagNames.isEmpty) {
+      flagNames.add(portableFlagFileName);
+    }
+    var changed = false;
+    for (final flagName in flagNames) {
+      if (archive.files.any((file) => file.name == flagName)) {
+        continue;
+      }
+      archive.addFile(ArchiveFile(flagName, 0, <int>[]));
+      changed = true;
+    }
+    if (!changed) {
+      return;
+    }
+    final encoded = ZipEncoder().encode(archive);
+    if (encoded == null) {
+      throw 'Failed to encode portable zip';
+    }
+    await zipFile.writeAsBytes(encoded, flush: true);
+  }
 }
 
 class BuildCommand extends Command {
@@ -470,12 +525,13 @@ class BuildCommand extends Command {
 
     switch (target) {
       case Target.windows:
-        _buildDistributor(
+        await _buildDistributor(
           target: target,
           targets: 'exe,zip',
           args: ' --description $archName',
           env: env,
         );
+        await Build.markWindowsZipPortable();
         return;
       case Target.linux:
         final targetMap = {Arch.arm64: 'linux-arm64', Arch.amd64: 'linux-x64'};
@@ -486,7 +542,7 @@ class BuildCommand extends Command {
         ].join(',');
         final defaultTarget = targetMap[arch];
         await _getLinuxDependencies(arch!);
-        _buildDistributor(
+        await _buildDistributor(
           target: target,
           targets: targets,
           args:
@@ -505,7 +561,7 @@ class BuildCommand extends Command {
             .where((element) => arch == null ? true : element == arch)
             .map((e) => targetMap[e])
             .toList();
-        _buildDistributor(
+        await _buildDistributor(
           target: target,
           targets: 'apk',
           args:
@@ -515,7 +571,7 @@ class BuildCommand extends Command {
         return;
       case Target.macos:
         await _getMacosDependencies();
-        _buildDistributor(
+        await _buildDistributor(
           target: target,
           targets: 'dmg',
           args: ' --description $archName',

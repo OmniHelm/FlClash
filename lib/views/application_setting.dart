@@ -86,12 +86,14 @@ class AutoLaunchItem extends ConsumerWidget {
       title: Text(appLocalizations.autoLaunch),
       subtitle: Text(appLocalizations.autoLaunchDesc),
       delegate: SwitchDelegate(
-        value: autoLaunch,
-        onChanged: (bool value) {
-          ref
-              .read(appSettingProvider.notifier)
-              .update((state) => state.copyWith(autoLaunch: value));
-        },
+        value: !appPath.isPortable && autoLaunch,
+        onChanged: appPath.isPortable
+            ? null
+            : (bool value) {
+                ref
+                    .read(appSettingProvider.notifier)
+                    .update((state) => state.copyWith(autoLaunch: value));
+              },
       ),
     );
   }

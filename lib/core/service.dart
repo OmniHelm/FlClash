@@ -101,7 +101,9 @@ class CoreService extends CoreHandlerInterface {
     final arg = system.isWindows
         ? '${serverSocket.port}'
         : serverSocket.address.address;
-    if (system.isWindows && await system.checkIsAdmin()) {
+    if (system.isWindows &&
+        !appPath.isPortable &&
+        await system.checkIsAdmin()) {
       final isSuccess = await request.startCoreByHelper(arg);
       if (isSuccess) {
         return;
@@ -155,7 +157,7 @@ class CoreService extends CoreHandlerInterface {
     _shutdownCompleter = Completer();
     await _destroySocket();
     _clearCompleter();
-    if (system.isWindows) {
+    if (system.isWindows && !appPath.isPortable) {
       await request.stopCoreByHelper();
     }
     _process?.kill();

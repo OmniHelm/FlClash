@@ -84,7 +84,7 @@ class GlobalState {
     final appStateOverrides = buildAppStateOverrides(appState);
     packageInfo = await PackageInfo.fromPlatform();
     final configMap = await preferences.getConfigMap();
-    final config = await migration.migrationIfNeeded(
+    var config = await migration.migrationIfNeeded(
       configMap,
       sync: (data) async {
         final newConfigMap = data.configMap;
@@ -96,6 +96,12 @@ class GlobalState {
         return config;
       },
     );
+    if (appPath.isPortable && config.appSettingProps.autoLaunch) {
+      config = config.copyWith(
+        appSettingProps: config.appSettingProps.copyWith(autoLaunch: false),
+      );
+      await preferences.saveConfig(config);
+    }
     final configOverrides = buildConfigOverrides(config);
     final container = ProviderContainer(
       overrides: [...appStateOverrides, ...configOverrides],

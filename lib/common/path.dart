@@ -1,9 +1,19 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
-import 'package:fl_clash/common/common.dart';
+import 'package:crypto/crypto.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
+
+const _appHelperService = 'FlClashHelperService';
+const _profilesDirectoryName = 'profiles';
+const _portableFlagFileName = 'portable.flag';
+const _portableEnvironmentKey = 'FLCLASH_PORTABLE';
+const _portableDataDirectoryName = 'data';
+const _portableCacheDirectoryName = 'cache';
+const _portableTempDirectoryName = 'temp';
+const _portableDownloadsDirectoryName = 'downloads';
 
 class AppPath {
   static AppPath? _instance;
@@ -12,21 +22,23 @@ class AppPath {
   Completer<Directory> tempDir = Completer();
   Completer<Directory> cacheDir = Completer();
   late String appDirPath;
+  late final bool _isPortable;
+  int _tempFileIndex = 0;
 
   AppPath._internal() {
     appDirPath = join(dirname(Platform.resolvedExecutable));
-    getApplicationSupportDirectory().then((value) {
-      dataDir.complete(value);
-    });
-    getTemporaryDirectory().then((value) {
-      tempDir.complete(value);
-    });
-    getDownloadsDirectory().then((value) {
-      downloadDir.complete(value);
-    });
-    getApplicationCacheDirectory().then((value) {
-      cacheDir.complete(value);
-    });
+    _isPortable = _resolvePortableMode();
+    if (_isPortable) {
+      dataDir.complete(_ensureDirectory(portableDataDirPath));
+      tempDir.complete(_ensureDirectory(portableTempDirPath));
+      downloadDir.complete(_ensureDirectory(portableDownloadsDirPath));
+      cacheDir.complete(_ensureDirectory(portableCacheDirPath));
+      return;
+    }
+    getApplicationSupportDirectory().then(dataDir.complete);
+    getTemporaryDirectory().then(tempDir.complete);
+    getDownloadsDirectory().then(downloadDir.complete);
+    getApplicationCacheDirectory().then(cacheDir.complete);
   }
 
   factory AppPath() {
@@ -35,7 +47,11 @@ class AppPath {
   }
 
   String get executableExtension {
-    return system.isWindows ? '.exe' : '';
+    return Platform.isWindows ? '.exe' : '';
+  }
+
+  bool get isPortable {
+    return _isPortable;
   }
 
   String get executableDirPath {
@@ -43,12 +59,32 @@ class AppPath {
     return dirname(currentExecutablePath);
   }
 
+  String get portableFlagPath {
+    return join(executableDirPath, _portableFlagFileName);
+  }
+
+  String get portableDataDirPath {
+    return join(executableDirPath, _portableDataDirectoryName);
+  }
+
+  String get portableCacheDirPath {
+    return join(executableDirPath, _portableCacheDirectoryName);
+  }
+
+  String get portableTempDirPath {
+    return join(executableDirPath, _portableTempDirectoryName);
+  }
+
+  String get portableDownloadsDirPath {
+    return join(executableDirPath, _portableDownloadsDirectoryName);
+  }
+
   String get corePath {
     return join(executableDirPath, 'FlClashCore$executableExtension');
   }
 
   String get helperPath {
-    return join(executableDirPath, '$appHelperService$executableExtension');
+    return join(executableDirPath, '$_appHelperService$executableExtension');
   }
 
   Future<String> get downloadDirPath async {
@@ -78,7 +114,7 @@ class AppPath {
 
   Future<String> get tempFilePath async {
     final mTempDir = await tempDir.future;
-    return join(mTempDir.path, 'temp${utils.id}');
+    return join(mTempDir.path, _nextTempFileName());
   }
 
   Future<String> get lockFilePath async {
@@ -103,7 +139,7 @@ class AppPath {
 
   Future<String> get profilesPath async {
     final directory = await dataDir.future;
-    return join(directory.path, profilesDirectoryName);
+    return join(directory.path, _profilesDirectoryName);
   }
 
   Future<String> getProfilePath(String fileName) async {
@@ -141,12 +177,45 @@ class AppPath {
     String url,
   ) async {
     final directory = await profilesPath;
-    return join(directory, 'providers', id, type, url.toMd5());
+    return join(directory, 'providers', id, type, _toMd5(url));
   }
 
   Future<String> get tempPath async {
     final directory = await tempDir.future;
     return directory.path;
+  }
+
+  bool _resolvePortableMode() {
+    if (!Platform.isWindows && !Platform.isMacOS && !Platform.isLinux) {
+      return false;
+    }
+    if (const bool.fromEnvironment('PORTABLE')) {
+      return true;
+    }
+    final envValue = Platform.environment[_portableEnvironmentKey]
+        ?.toLowerCase();
+    if (envValue == '1' || envValue == 'true' || envValue == 'yes') {
+      return true;
+    }
+    return File(portableFlagPath).existsSync();
+  }
+
+  Future<Directory> _ensureDirectory(String path) async {
+    final directory = Directory(path);
+    if (!await directory.exists()) {
+      await directory.create(recursive: true);
+    }
+    return directory;
+  }
+
+  String _nextTempFileName() {
+    final index = _tempFileIndex++;
+    return 'temp${DateTime.now().microsecondsSinceEpoch}$index';
+  }
+
+  String _toMd5(String value) {
+    final bytes = utf8.encode(value);
+    return md5.convert(bytes).toString();
   }
 }
 
