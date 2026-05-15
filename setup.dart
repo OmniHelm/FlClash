@@ -108,6 +108,18 @@ class Build {
 
   static String get _servicesDir => join(current, 'services', 'helper');
 
+  static String get _goOverlayPath {
+    return join(_coreDir, '.dart_tool', 'mihomo_overlay.json');
+  }
+
+  static String get _mihomoPathSource {
+    return join(_coreDir, 'Clash.Meta', 'constant', 'path.go');
+  }
+
+  static String get _mihomoPathPatch {
+    return join(_coreDir, 'patches', 'mihomo', 'constant', 'path.go');
+  }
+
   static String get distPath => join(current, 'dist');
 
   static String _getCc(BuildItem buildItem) {
@@ -171,6 +183,23 @@ class Build {
     return sha256.convert(await stream.reduce((a, b) => a + b)).toString();
   }
 
+  static Future<List<String>> buildGoOverlayArgs() async {
+    final patchFile = File(_mihomoPathPatch);
+    if (!await patchFile.exists()) {
+      return [];
+    }
+
+    final overlayFile = File(_goOverlayPath);
+    await overlayFile.parent.create(recursive: true);
+    final overlay = {
+      'Replace': {
+        absolute(_mihomoPathSource): absolute(_mihomoPathPatch),
+      },
+    };
+    await overlayFile.writeAsString(json.encode(overlay));
+    return ['-overlay=${overlayFile.absolute.path}'];
+  }
+
   static Future<List<String>> buildCore({
     required Mode mode,
     required Target target,
@@ -184,6 +213,7 @@ class Build {
     }).toList();
 
     final List<String> corePaths = [];
+    final goOverlayArgs = await buildGoOverlayArgs();
 
     final targetOutFilePath = join(outDir, target.name);
     final targetOutFile = File(targetOutFilePath);
@@ -219,6 +249,7 @@ class Build {
       final execLines = [
         'go',
         'build',
+        ...goOverlayArgs,
         '-ldflags=-w -s',
         '-tags=$tags',
         if (isLib) '-buildmode=c-shared',

@@ -9,7 +9,6 @@ import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path/path.dart' hide context;
 
 @immutable
 class GeoItem {
@@ -95,8 +94,7 @@ class _GeoDataListItemState extends State<GeoDataListItem> {
   }
 
   Future<FileInfo> _getGeoFileLastModified(String fileName) async {
-    final homePath = await appPath.homeDirPath;
-    final file = File(join(homePath, fileName));
+    final file = File(await appPath.getGeoFilePath(fileName));
     final lastModified = await file.lastModified();
     final size = await file.length();
     return FileInfo(size: size, lastModified: lastModified);

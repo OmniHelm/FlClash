@@ -44,7 +44,7 @@ func handleInitClash(paramsString string) bool {
 		return false
 	}
 	version = params.Version
-	constant.SetHomeDir(params.HomeDir)
+	configureRuntimePaths(params)
 	isInit = true
 	return isInit
 }
@@ -358,7 +358,7 @@ func handleGetExternalProvider(externalProviderName string) string {
 
 func handleUpdateGeoData(geoType string, geoName string, fn func(value string)) {
 	go func() {
-		path := constant.Path.Resolve(geoName)
+		path := currentGeoDataPath(geoName)
 		switch geoType {
 		case "MMDB":
 			err := updater.UpdateMMDBWithPath(path)

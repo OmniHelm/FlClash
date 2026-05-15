@@ -60,6 +60,8 @@ abstract class VpnOptions with _$VpnOptions {
 abstract class InitParams with _$InitParams {
   const factory InitParams({
     @JsonKey(name: 'home-dir') required String homeDir,
+    @JsonKey(name: 'config-path') required String configPath,
+    @JsonKey(name: 'geo-dir') required String geoDir,
     required int version,
   }) = _InitParams;
 

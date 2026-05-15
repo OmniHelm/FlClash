@@ -7,7 +7,11 @@ import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 
 const _appHelperService = 'FlClashHelperService';
+const _configDirectoryName = 'config';
+const _databaseDirectoryName = 'database';
 const _profilesDirectoryName = 'profiles';
+const _scriptsDirectoryName = 'scripts';
+const _geoDirectoryName = 'geo';
 const _portableFlagFileName = 'portable.flag';
 const _portableEnvironmentKey = 'FLCLASH_PORTABLE';
 const _portableDataDirectoryName = 'data';
@@ -68,7 +72,7 @@ class AppPath {
   }
 
   String get portableCacheDirPath {
-    return join(executableDirPath, _portableCacheDirectoryName);
+    return join(portableDataDirPath, _portableCacheDirectoryName);
   }
 
   String get portableTempDirPath {
@@ -97,9 +101,21 @@ class AppPath {
     return directory.path;
   }
 
+  Future<String> get configDirPath async {
+    return _ensureDataChildDirPath(_configDirectoryName);
+  }
+
+  Future<String> get databaseDirPath async {
+    return _ensureDataChildDirPath(_databaseDirectoryName);
+  }
+
+  Future<String> get geoDirPath async {
+    return _ensureDataChildDirPath(_geoDirectoryName);
+  }
+
   Future<String> get databasePath async {
-    final mHomeDirPath = await homeDirPath;
-    return join(mHomeDirPath, 'database.sqlite');
+    final directory = await databaseDirPath;
+    return join(directory, 'database.sqlite');
   }
 
   Future<String> get backupFilePath async {
@@ -123,8 +139,8 @@ class AppPath {
   }
 
   Future<String> get configFilePath async {
-    final mHomeDirPath = await homeDirPath;
-    return join(mHomeDirPath, 'config.yaml');
+    final directory = await configDirPath;
+    return join(directory, 'config.yaml');
   }
 
   Future<String> get sharedFilePath async {
@@ -133,8 +149,8 @@ class AppPath {
   }
 
   Future<String> get sharedPreferencesPath async {
-    final directory = await dataDir.future;
-    return join(directory.path, 'shared_preferences.json');
+    final directory = await configDirPath;
+    return join(directory, 'shared_preferences.json');
   }
 
   Future<String> get profilesPath async {
@@ -147,13 +163,17 @@ class AppPath {
   }
 
   Future<String> get scriptsDirPath async {
-    final path = await homeDirPath;
-    return join(path, 'scripts');
+    return _ensureDataChildDirPath(_scriptsDirectoryName);
   }
 
   Future<String> getScriptPath(String fileName) async {
     final path = await scriptsDirPath;
     return join(path, '$fileName.js');
+  }
+
+  Future<String> getGeoFilePath(String fileName) async {
+    final directory = await geoDirPath;
+    return join(directory, fileName);
   }
 
   Future<String> getIconsCacheDir() async {
@@ -206,6 +226,14 @@ class AppPath {
       await directory.create(recursive: true);
     }
     return directory;
+  }
+
+  Future<String> _ensureDataChildDirPath(String childName) async {
+    final dataDirectory = await dataDir.future;
+    final directory = await _ensureDirectory(
+      join(dataDirectory.path, childName),
+    );
+    return directory.path;
   }
 
   String _nextTempFileName() {

@@ -915,7 +915,7 @@ $AccessControlPropsCopyWith<$Res> get accessControlProps {
 /// @nodoc
 mixin _$InitParams {
 
-@JsonKey(name: 'home-dir') String get homeDir; int get version;
+@JsonKey(name: 'home-dir') String get homeDir;@JsonKey(name: 'config-path') String get configPath;@JsonKey(name: 'geo-dir') String get geoDir; int get version;
 /// Create a copy of InitParams
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -928,16 +928,16 @@ $InitParamsCopyWith<InitParams> get copyWith => _$InitParamsCopyWithImpl<InitPar
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is InitParams&&(identical(other.homeDir, homeDir) || other.homeDir == homeDir)&&(identical(other.version, version) || other.version == version));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is InitParams&&(identical(other.homeDir, homeDir) || other.homeDir == homeDir)&&(identical(other.configPath, configPath) || other.configPath == configPath)&&(identical(other.geoDir, geoDir) || other.geoDir == geoDir)&&(identical(other.version, version) || other.version == version));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,homeDir,version);
+int get hashCode => Object.hash(runtimeType,homeDir,configPath,geoDir,version);
 
 @override
 String toString() {
-  return 'InitParams(homeDir: $homeDir, version: $version)';
+  return 'InitParams(homeDir: $homeDir, configPath: $configPath, geoDir: $geoDir, version: $version)';
 }
 
 
@@ -948,7 +948,7 @@ abstract mixin class $InitParamsCopyWith<$Res>  {
   factory $InitParamsCopyWith(InitParams value, $Res Function(InitParams) _then) = _$InitParamsCopyWithImpl;
 @useResult
 $Res call({
-@JsonKey(name: 'home-dir') String homeDir, int version
+@JsonKey(name: 'home-dir') String homeDir,@JsonKey(name: 'config-path') String configPath,@JsonKey(name: 'geo-dir') String geoDir, int version
 });
 
 
@@ -965,9 +965,11 @@ class _$InitParamsCopyWithImpl<$Res>
 
 /// Create a copy of InitParams
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? homeDir = null,Object? version = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? homeDir = null,Object? configPath = null,Object? geoDir = null,Object? version = null,}) {
   return _then(_self.copyWith(
 homeDir: null == homeDir ? _self.homeDir : homeDir // ignore: cast_nullable_to_non_nullable
+as String,configPath: null == configPath ? _self.configPath : configPath // ignore: cast_nullable_to_non_nullable
+as String,geoDir: null == geoDir ? _self.geoDir : geoDir // ignore: cast_nullable_to_non_nullable
 as String,version: null == version ? _self.version : version // ignore: cast_nullable_to_non_nullable
 as int,
   ));
@@ -1054,10 +1056,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'home-dir')  String homeDir,  int version)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'home-dir')  String homeDir, @JsonKey(name: 'config-path')  String configPath, @JsonKey(name: 'geo-dir')  String geoDir,  int version)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _InitParams() when $default != null:
-return $default(_that.homeDir,_that.version);case _:
+return $default(_that.homeDir,_that.configPath,_that.geoDir,_that.version);case _:
   return orElse();
 
 }
@@ -1075,10 +1077,10 @@ return $default(_that.homeDir,_that.version);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'home-dir')  String homeDir,  int version)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'home-dir')  String homeDir, @JsonKey(name: 'config-path')  String configPath, @JsonKey(name: 'geo-dir')  String geoDir,  int version)  $default,) {final _that = this;
 switch (_that) {
 case _InitParams():
-return $default(_that.homeDir,_that.version);case _:
+return $default(_that.homeDir,_that.configPath,_that.geoDir,_that.version);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1095,10 +1097,10 @@ return $default(_that.homeDir,_that.version);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'home-dir')  String homeDir,  int version)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'home-dir')  String homeDir, @JsonKey(name: 'config-path')  String configPath, @JsonKey(name: 'geo-dir')  String geoDir,  int version)?  $default,) {final _that = this;
 switch (_that) {
 case _InitParams() when $default != null:
-return $default(_that.homeDir,_that.version);case _:
+return $default(_that.homeDir,_that.configPath,_that.geoDir,_that.version);case _:
   return null;
 
 }
@@ -1110,10 +1112,12 @@ return $default(_that.homeDir,_that.version);case _:
 @JsonSerializable()
 
 class _InitParams implements InitParams {
-  const _InitParams({@JsonKey(name: 'home-dir') required this.homeDir, required this.version});
+  const _InitParams({@JsonKey(name: 'home-dir') required this.homeDir, @JsonKey(name: 'config-path') required this.configPath, @JsonKey(name: 'geo-dir') required this.geoDir, required this.version});
   factory _InitParams.fromJson(Map<String, dynamic> json) => _$InitParamsFromJson(json);
 
 @override@JsonKey(name: 'home-dir') final  String homeDir;
+@override@JsonKey(name: 'config-path') final  String configPath;
+@override@JsonKey(name: 'geo-dir') final  String geoDir;
 @override final  int version;
 
 /// Create a copy of InitParams
@@ -1129,16 +1133,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _InitParams&&(identical(other.homeDir, homeDir) || other.homeDir == homeDir)&&(identical(other.version, version) || other.version == version));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _InitParams&&(identical(other.homeDir, homeDir) || other.homeDir == homeDir)&&(identical(other.configPath, configPath) || other.configPath == configPath)&&(identical(other.geoDir, geoDir) || other.geoDir == geoDir)&&(identical(other.version, version) || other.version == version));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,homeDir,version);
+int get hashCode => Object.hash(runtimeType,homeDir,configPath,geoDir,version);
 
 @override
 String toString() {
-  return 'InitParams(homeDir: $homeDir, version: $version)';
+  return 'InitParams(homeDir: $homeDir, configPath: $configPath, geoDir: $geoDir, version: $version)';
 }
 
 
@@ -1149,7 +1153,7 @@ abstract mixin class _$InitParamsCopyWith<$Res> implements $InitParamsCopyWith<$
   factory _$InitParamsCopyWith(_InitParams value, $Res Function(_InitParams) _then) = __$InitParamsCopyWithImpl;
 @override @useResult
 $Res call({
-@JsonKey(name: 'home-dir') String homeDir, int version
+@JsonKey(name: 'home-dir') String homeDir,@JsonKey(name: 'config-path') String configPath,@JsonKey(name: 'geo-dir') String geoDir, int version
 });
 
 
@@ -1166,9 +1170,11 @@ class __$InitParamsCopyWithImpl<$Res>
 
 /// Create a copy of InitParams
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? homeDir = null,Object? version = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? homeDir = null,Object? configPath = null,Object? geoDir = null,Object? version = null,}) {
   return _then(_InitParams(
 homeDir: null == homeDir ? _self.homeDir : homeDir // ignore: cast_nullable_to_non_nullable
+as String,configPath: null == configPath ? _self.configPath : configPath // ignore: cast_nullable_to_non_nullable
+as String,geoDir: null == geoDir ? _self.geoDir : geoDir // ignore: cast_nullable_to_non_nullable
 as String,version: null == version ? _self.version : version // ignore: cast_nullable_to_non_nullable
 as int,
   ));

@@ -113,12 +113,16 @@ Map<String, dynamic> _$VpnOptionsToJson(_VpnOptions instance) =>
 
 _InitParams _$InitParamsFromJson(Map<String, dynamic> json) => _InitParams(
   homeDir: json['home-dir'] as String,
+  configPath: json['config-path'] as String,
+  geoDir: json['geo-dir'] as String,
   version: (json['version'] as num).toInt(),
 );
 
 Map<String, dynamic> _$InitParamsToJson(_InitParams instance) =>
     <String, dynamic>{
       'home-dir': instance.homeDir,
+      'config-path': instance.configPath,
+      'geo-dir': instance.geoDir,
       'version': instance.version,
     };
 

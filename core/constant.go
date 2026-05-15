@@ -12,8 +12,10 @@ import (
 )
 
 type InitParams struct {
-	HomeDir string `json:"home-dir"`
-	Version int    `json:"version"`
+	HomeDir    string `json:"home-dir"`
+	ConfigPath string `json:"config-path"`
+	GeoDir     string `json:"geo-dir"`
+	Version    int    `json:"version"`
 }
 
 type SetupParams struct {

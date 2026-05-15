@@ -25,17 +25,75 @@ import (
 	"github.com/metacubex/mihomo/tunnel"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"sync"
+	"unsafe"
 )
 
 var (
-	currentConfig *config.Config
-	version       = 0
-	isRunning     = false
-	runLock       sync.Mutex
-	mBatch, _     = batch.New[bool](context.Background(), batch.WithConcurrencyNum[bool](50))
+	currentConfig  *config.Config
+	configFilePath string
+	geoDirPath     string
+	version        = 0
+	isRunning      = false
+	runLock        sync.Mutex
+	mBatch, _      = batch.New[bool](context.Background(), batch.WithConcurrencyNum[bool](50))
 )
+
+func configureRuntimePaths(params InitParams) {
+	constant.SetHomeDir(params.HomeDir)
+
+	configFilePath = params.ConfigPath
+	if configFilePath == "" {
+		configFilePath = filepath.Join(params.HomeDir, "config.yaml")
+	}
+	constant.SetConfig(configFilePath)
+
+	geoDirPath = params.GeoDir
+	if geoDirPath == "" {
+		geoDirPath = params.HomeDir
+	}
+
+	_ = os.MkdirAll(filepath.Dir(configFilePath), 0o755)
+	_ = os.MkdirAll(filepath.Join(params.HomeDir, "cache"), 0o755)
+	_ = os.MkdirAll(geoDirPath, 0o755)
+	setMihomoGeoDir(geoDirPath)
+}
+
+func currentConfigPath() string {
+	if configFilePath != "" {
+		return configFilePath
+	}
+	return filepath.Join(constant.Path.HomeDir(), "config.yaml")
+}
+
+func currentGeoDataPath(fileName string) string {
+	if filepath.IsAbs(fileName) {
+		return fileName
+	}
+	if geoDirPath != "" {
+		return filepath.Join(geoDirPath, fileName)
+	}
+	return constant.Path.Resolve(fileName)
+}
+
+func setMihomoGeoDir(path string) {
+	pathValue := reflect.ValueOf(constant.Path)
+	if pathValue.Kind() != reflect.Ptr || pathValue.IsNil() {
+		return
+	}
+
+	field := pathValue.Elem().FieldByName("geoDir")
+	if !field.IsValid() || field.Kind() != reflect.String || !field.CanAddr() {
+		return
+	}
+
+	// mihomo 的 geoDir 字段来自构建 overlay；直接 go build 时不存在则保持原逻辑。
+	reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).
+		Elem().
+		SetString(path)
+}
 
 func getExternalProvidersRaw() map[string]cp.Provider {
 	eps := make(map[string]cp.Provider)
@@ -241,7 +299,7 @@ func applyConfig(params *SetupParams) error {
 	defer runLock.Unlock()
 	var err error
 	constant.DefaultTestURL = params.TestURL
-	currentConfig, err = executor.ParseWithPath(filepath.Join(constant.Path.HomeDir(), "config.yaml"))
+	currentConfig, err = executor.ParseWithPath(currentConfigPath())
 	if err != nil {
 		currentConfig, _ = config.ParseRawConfig(config.DefaultRawConfig())
 	}

@@ -8,7 +8,6 @@ import 'package:fl_clash/core/interface.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:flutter/services.dart';
-import 'package:path/path.dart';
 
 class CoreController {
   static CoreController? _instance;
@@ -34,16 +33,16 @@ class CoreController {
   }
 
   static Future<void> initGeo() async {
-    final homePath = await appPath.homeDirPath;
-    final homeDir = Directory(homePath);
-    final isExists = await homeDir.exists();
+    final geoDirPath = await appPath.geoDirPath;
+    final geoDir = Directory(geoDirPath);
+    final isExists = await geoDir.exists();
     if (!isExists) {
-      await homeDir.create(recursive: true);
+      await geoDir.create(recursive: true);
     }
     const geoFileNameList = [MMDB, GEOIP, GEOSITE, ASN];
     try {
       for (final geoFileName in geoFileNameList) {
-        final geoFile = File(join(homePath, geoFileName));
+        final geoFile = File(await appPath.getGeoFilePath(geoFileName));
         final isExists = await geoFile.exists();
         if (isExists) {
           continue;
@@ -60,8 +59,15 @@ class CoreController {
   Future<bool> init(int version) async {
     await initGeo();
     final homeDirPath = await appPath.homeDirPath;
+    final configFilePath = await appPath.configFilePath;
+    final geoDirPath = await appPath.geoDirPath;
     return await _interface.init(
-      InitParams(homeDir: homeDirPath, version: version),
+      InitParams(
+        homeDir: homeDirPath,
+        configPath: configFilePath,
+        geoDir: geoDirPath,
+        version: version,
+      ),
     );
   }
 
