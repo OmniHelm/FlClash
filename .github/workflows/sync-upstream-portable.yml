@@ -131,14 +131,28 @@ jobs:
           EOF
           )"
 
-          if pr_url="$(gh pr view "${BRANCH_NAME}" --json url --jq .url 2>/dev/null)"; then
-            gh pr edit "${BRANCH_NAME}" --title "${title}" --body "${body}"
+          repo="${GITHUB_REPOSITORY}"
+          pr_url="$(gh pr list \
+            --repo "${repo}" \
+            --head "${BRANCH_NAME}" \
+            --state open \
+            --json url \
+            --jq '.[0].url // ""')"
+
+          if [ -n "${pr_url}" ]; then
+            if ! gh pr edit "${pr_url}" --title "${title}" --body "${body}"; then
+              echo "::warning::Failed to update existing pull request ${pr_url}."
+            fi
           else
-            pr_url="$(gh pr create \
-              --base main \
-              --head "${BRANCH_NAME}" \
-              --title "${title}" \
-              --body "${body}")"
+            if ! pr_url="$(gh pr create \
+                --repo "${repo}" \
+                --base main \
+                --head "${BRANCH_NAME}" \
+                --title "${title}" \
+                --body "${body}")"; then
+              echo "::warning::Failed to create pull request. Continuing so the portable build can run."
+              pr_url=""
+            fi
           fi
 
           echo "pr_url=${pr_url}" >> "$GITHUB_OUTPUT"
@@ -201,6 +215,11 @@ jobs:
           ARTIFACT_NAME: artifact-windows-portable-${{ needs.sync-upstream.outputs.upstream_short_sha }}
         run: |
           set -euo pipefail
+
+          if [ -z "${PR_URL}" ]; then
+            echo "No pull request URL was produced; skipping build result comment."
+            exit 0
+          fi
 
           gh pr comment "${PR_URL}" --body "$(cat <<EOF
           Windows portable build result: ${BUILD_RESULT}
