@@ -132,6 +132,7 @@ jobs:
         with:
           name: artifact-${{ matrix.platform }}${{ matrix.arch && format('-{0}', matrix.arch) }}
           path: ./dist
+          if-no-files-found: error
           overwrite: true
 
   build-windows-portable:
@@ -154,7 +155,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: 3.35.7
+          flutter-version: 3.41.9
           cache: true
 
       - name: Get Flutter Dependency
@@ -163,13 +164,14 @@ jobs:
           flutter pub get
 
       - name: Build Windows portable package
-        run: dart setup.dart windows --arch amd64 --env stable
+        run: dart setup.dart windows --env stable
 
       - name: Upload Windows portable artifact
         uses: actions/upload-artifact@v4
         with:
           name: artifact-windows-portable-amd64
           path: ./dist
+          if-no-files-found: error
           overwrite: true
 
   changelog:

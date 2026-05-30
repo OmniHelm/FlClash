@@ -189,13 +189,14 @@ jobs:
           flutter pub get
 
       - name: Build Windows portable package
-        run: dart setup.dart windows --arch amd64 --env stable
+        run: dart setup.dart windows --env stable
 
       - name: Upload Windows portable artifact
         uses: actions/upload-artifact@v4
         with:
           name: artifact-windows-portable-${{ needs.sync-upstream.outputs.upstream_short_sha }}
           path: ./dist
+          if-no-files-found: error
           overwrite: true
 
   comment-build-result:

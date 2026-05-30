@@ -59,7 +59,7 @@ Future<void> main(List<String> args) async {
   final rootDir = Directory.current.path;
   final arch = _detectArch();
   final targets = _getTargets(platform, arch, results['targets']);
-  final androidArch = results['arch'] as String?;
+  final androidArch = platform == 'android' ? results['arch'] as String? : null;
   final verbose = results['verbose'] as bool;
 
   final exitCode = await _package(
@@ -207,10 +207,19 @@ Future<int> _package(
     stderr.write(utf8.decode(data));
   });
   final exitCode = await process.exitCode;
-  if (exitCode == 0 && platform == 'windows' && _targetsIncludeZip(targets)) {
-    await _markWindowsZipPortable(rootDir);
+  if (exitCode != 0) {
+    return exitCode;
   }
-  return exitCode;
+  if (platform == 'windows' && _targetsIncludeZip(targets)) {
+    final foundZip = await _markWindowsZipPortable(rootDir);
+    if (!foundZip) {
+      stderr.writeln(
+        'Windows zip target completed, but no Windows zip package was found under dist.',
+      );
+      return 1;
+    }
+  }
+  return 0;
 }
 
 bool _targetsIncludeZip(String targets) {
@@ -246,19 +255,22 @@ Future<String?> _buildGoCore(String rootDir) async {
   return content['CORE_SHA256'] as String?;
 }
 
-Future<void> _markWindowsZipPortable(String rootDir) async {
+Future<bool> _markWindowsZipPortable(String rootDir) async {
   final distDir = Directory(p.join(rootDir, 'dist'));
   if (!await distDir.exists()) {
-    return;
+    return false;
   }
+  var foundZip = false;
   await for (final entity in distDir.list(recursive: true)) {
     if (entity is! File ||
         p.extension(entity.path).toLowerCase() != '.zip' ||
         !p.basename(entity.path).toLowerCase().contains('windows')) {
       continue;
     }
+    foundZip = true;
     await _addPortableFlagToZip(entity);
   }
+  return foundZip;
 }
 
 Future<void> _addPortableFlagToZip(File zipFile) async {
