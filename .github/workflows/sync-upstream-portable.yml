@@ -55,7 +55,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git remote add upstream "https://github.com/${UPSTREAM_REPOSITORY}.git"
-          git fetch upstream "${UPSTREAM_BRANCH}" --tags
+          git fetch --no-tags upstream "${UPSTREAM_BRANCH}"
 
           upstream_ref="upstream/${UPSTREAM_BRANCH}"
           upstream_sha="$(git rev-parse "${upstream_ref}")"
