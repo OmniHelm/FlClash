@@ -3,13 +3,13 @@ import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
 class CloseConnectionsItem extends ConsumerWidget {
   const CloseConnectionsItem({super.key});
 
   @override
   Widget build(BuildContext context, ref) {
+    final appLocalizations = context.appLocalizations;
     final closeConnections = ref.watch(
       appSettingProvider.select((state) => state.closeConnections),
     );
@@ -33,6 +33,7 @@ class UsageItem extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, ref) {
+    final appLocalizations = context.appLocalizations;
     final onlyStatisticsProxy = ref.watch(
       appSettingProvider.select((state) => state.onlyStatisticsProxy),
     );
@@ -56,6 +57,7 @@ class MinimizeItem extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final appLocalizations = context.appLocalizations;
     final minimizeOnExit = ref.watch(
       appSettingProvider.select((state) => state.minimizeOnExit),
     );
@@ -79,6 +81,7 @@ class AutoLaunchItem extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final appLocalizations = context.appLocalizations;
     final autoLaunch = ref.watch(
       appSettingProvider.select((state) => state.autoLaunch),
     );
@@ -104,6 +107,7 @@ class SilentLaunchItem extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final appLocalizations = context.appLocalizations;
     final silentLaunch = ref.watch(
       appSettingProvider.select((state) => state.silentLaunch),
     );
@@ -127,6 +131,7 @@ class AutoRunItem extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final appLocalizations = context.appLocalizations;
     final autoRun = ref.watch(
       appSettingProvider.select((state) => state.autoRun),
     );
@@ -150,6 +155,7 @@ class HiddenItem extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final appLocalizations = context.appLocalizations;
     final hidden = ref.watch(
       appSettingProvider.select((state) => state.hidden),
     );
@@ -173,6 +179,7 @@ class AnimateTabItem extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final appLocalizations = context.appLocalizations;
     final isAnimateToPage = ref.watch(
       appSettingProvider.select((state) => state.isAnimateToPage),
     );
@@ -196,6 +203,7 @@ class OpenLogsItem extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final appLocalizations = context.appLocalizations;
     final openLogs = ref.watch(
       appSettingProvider.select((state) => state.openLogs),
     );
@@ -219,6 +227,7 @@ class CrashlyticsItem extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final appLocalizations = context.appLocalizations;
     final crashlytics = ref.watch(
       appSettingProvider.select((state) => state.crashlytics),
     );
@@ -242,6 +251,7 @@ class AutoCheckUpdateItem extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final appLocalizations = context.appLocalizations;
     final autoCheckUpdate = ref.watch(
       appSettingProvider.select((state) => state.autoCheckUpdate),
     );
@@ -263,27 +273,22 @@ class AutoCheckUpdateItem extends ConsumerWidget {
 class ApplicationSettingView extends StatelessWidget {
   const ApplicationSettingView({super.key});
 
-  String getLocaleString(Locale? locale) {
-    if (locale == null) return appLocalizations.defaultText;
-    return Intl.message(locale.toString());
-  }
-
   @override
   Widget build(BuildContext context) {
-    List<Widget> items = [
-      MinimizeItem(),
-      if (system.isDesktop) ...[AutoLaunchItem(), SilentLaunchItem()],
-      AutoRunItem(),
-      if (system.isAndroid) ...[HiddenItem()],
-      AnimateTabItem(),
-      OpenLogsItem(),
-      CloseConnectionsItem(),
-      UsageItem(),
-      if (system.isAndroid) CrashlyticsItem(),
-      AutoCheckUpdateItem(),
+    final List<Widget> items = [
+      const MinimizeItem(),
+      if (system.isDesktop) ...[const AutoLaunchItem(), const SilentLaunchItem()],
+      const AutoRunItem(),
+      if (system.isAndroid) ...[const HiddenItem()],
+      const AnimateTabItem(),
+      const OpenLogsItem(),
+      const CloseConnectionsItem(),
+      const UsageItem(),
+      if (system.isAndroid) const CrashlyticsItem(),
+      const AutoCheckUpdateItem(),
     ];
     return BaseScaffold(
-      title: appLocalizations.application,
+      title: context.appLocalizations.application,
       body: ListView.separated(
         itemBuilder: (_, index) {
           final item = items[index];

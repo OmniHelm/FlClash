@@ -78,8 +78,14 @@ jobs:
           if git ls-remote --exit-code --heads origin "${branch_name}" >/dev/null 2>&1; then
             git fetch origin "${branch_name}"
             if git merge-base --is-ancestor "${upstream_sha}" "origin/${branch_name}"; then
-              echo "sync_needed=false" >> "$GITHUB_OUTPUT"
-              echo "Existing sync branch already contains ${UPSTREAM_REPOSITORY}@${upstream_short_sha}."
+              git checkout -B "${branch_name}" "origin/${branch_name}"
+              if git diff --quiet origin/main.."${branch_name}"; then
+                echo "sync_needed=false" >> "$GITHUB_OUTPUT"
+                echo "Existing sync branch contains ${UPSTREAM_REPOSITORY}@${upstream_short_sha}, but has no fork-visible changes."
+                exit 0
+              fi
+              echo "sync_needed=true" >> "$GITHUB_OUTPUT"
+              echo "Reusing existing sync branch containing ${UPSTREAM_REPOSITORY}@${upstream_short_sha}."
               exit 0
             fi
           fi

@@ -7,6 +7,7 @@ import 'package:fl_clash/core/core.dart';
 import 'package:fl_clash/core/interface.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/services.dart';
 
 class CoreController {
@@ -19,6 +20,14 @@ class CoreController {
     } else {
       _interface = coreService!;
     }
+  }
+
+  @visibleForTesting
+  CoreController.test(this._interface);
+
+  @visibleForTesting
+  static void resetInstance() {
+    _instance = null;
   }
 
   factory CoreController() {
@@ -48,11 +57,15 @@ class CoreController {
           continue;
         }
         final data = await rootBundle.load('assets/data/$geoFileName');
-        List<int> bytes = data.buffer.asUint8List();
+        final List<int> bytes = data.buffer.asUint8List();
         await geoFile.writeAsBytes(bytes, flush: true);
       }
     } catch (e) {
-      exit(0);
+      commonPrint.log(
+        'Failed to initialize geo data: $e',
+        logLevel: LogLevel.error,
+      );
+      rethrow;
     }
   }
 
@@ -92,7 +105,7 @@ class CoreController {
   }
 
   Future<String> updateConfig(UpdateParams updateParams) async {
-    return await _interface.updateConfig(updateParams);
+    return _interface.updateConfig(updateParams);
   }
 
   Future<String> setupConfig({
@@ -136,16 +149,16 @@ class CoreController {
     return connectionsRaw.map((e) => TrackerInfo.fromJson(e)).toList();
   }
 
-  void closeConnection(String id) {
-    _interface.closeConnection(id);
+  Future<void> closeConnection(String id) async {
+    await _interface.closeConnection(id);
   }
 
-  void closeConnections() {
-    _interface.closeConnections();
+  Future<void> closeConnections() async {
+    await _interface.closeConnections();
   }
 
-  void resetConnections() {
-    _interface.resetConnections();
+  Future<void> resetConnections() async {
+    await _interface.resetConnections();
   }
 
   Future<List<ExternalProvider>> getExternalProviders() async {
@@ -191,11 +204,11 @@ class CoreController {
   }
 
   Future<bool> startListener() async {
-    return await _interface.startListener();
+    return _interface.startListener();
   }
 
   Future<bool> stopListener() async {
-    return await _interface.stopListener();
+    return _interface.stopListener();
   }
 
   Future<Delay> getDelay(String url, String proxyName) async {
@@ -219,7 +232,7 @@ class CoreController {
   Future<Traffic> getTraffic(bool onlyStatisticsProxy) async {
     final trafficString = await _interface.getTraffic(onlyStatisticsProxy);
     if (trafficString.isEmpty) {
-      return Traffic();
+      return const Traffic();
     }
     return Traffic.fromJson(json.decode(trafficString));
   }
@@ -237,7 +250,7 @@ class CoreController {
       onlyStatisticsProxy,
     );
     if (totalTrafficString.isEmpty) {
-      return Traffic();
+      return const Traffic();
     }
     return Traffic.fromJson(json.decode(totalTrafficString));
   }
@@ -275,7 +288,7 @@ class CoreController {
   }
 
   Future<String> deleteFile(String path) async {
-    return await _interface.deleteFile(path);
+    return _interface.deleteFile(path);
   }
 }
 
