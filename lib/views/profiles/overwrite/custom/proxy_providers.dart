@@ -138,13 +138,8 @@ class _EditProxyProvidersViewState extends ConsumerState<EditProxyProvidersView>
   }
 
   void _handleReorder(int oldIndex, int newIndex) {
-    if (oldIndex < newIndex) {
-      newIndex -= 1;
-    }
     ref.read(proxyGroupProvider.notifier).update((state) {
-      final nextItems = List<String>.from(state.use ?? []);
-      final item = nextItems.removeAt(oldIndex);
-      nextItems.insert(newIndex, item);
+      final nextItems = (state.use ?? []).copyAndReorder(oldIndex, newIndex);
       return state.copyWith(use: nextItems);
     });
   }
@@ -191,7 +186,7 @@ class _EditProxyProvidersViewState extends ConsumerState<EditProxyProvidersView>
                 child: CommonCard(
                   radius: 20,
                   type: CommonCardType.filled,
-                  child: ListItem.switchItem(
+                  child: ListItem.toggle(
                     minTileHeight: 54,
                     title: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -219,12 +214,10 @@ class _EditProxyProvidersViewState extends ConsumerState<EditProxyProvidersView>
                         ),
                       ],
                     ),
-                    delegate: SwitchDelegate(
-                      value: includeAllProxyProviders,
-                      onChanged: (_) {
-                        _handleChangeIncludeAllProxyProviders();
-                      },
-                    ),
+                    value: includeAllProxyProviders,
+                    onChanged: (_) {
+                      _handleChangeIncludeAllProxyProviders();
+                    },
                   ),
                 ),
               ),
@@ -283,7 +276,7 @@ class _EditProxyProvidersViewState extends ConsumerState<EditProxyProvidersView>
                     animation,
                   );
                 },
-                onReorder: (int oldIndex, int newIndex) {
+                onReorderItem: (int oldIndex, int newIndex) {
                   _handleReorder(oldIndex, newIndex);
                 },
               )

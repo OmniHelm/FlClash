@@ -50,15 +50,11 @@ class _EditProfileViewState extends State<EditProfileView> {
 
   Future<void> _updateFileInfo() async {
     final file = await widget.profile.file;
-    if (!await file.exists()) {
-      return;
-    }
-    final lastModified = await file.lastModified();
-    final size = await file.length();
+    final fileInfo = await file.getFileInfo();
     if (!mounted) {
       return;
     }
-    _fileInfoNotifier.value = FileInfo(size: size, lastModified: lastModified);
+    _fileInfoNotifier.value = fileInfo;
   }
 
   Future<void> _handleConfirm() async {
@@ -176,8 +172,8 @@ class _EditProfileViewState extends State<EditProfileView> {
 
   Future<void> _uploadProfileFile() async {
     final platformFile = await globalState.safeRun(picker.pickerFile);
-    if (platformFile?.bytes == null) return;
-    _fileData = platformFile?.bytes;
+    if (platformFile == null) return;
+    _fileData = await platformFile.readBytes();
     if (!mounted) {
       return;
     }
@@ -220,6 +216,7 @@ class _EditProfileViewState extends State<EditProfileView> {
         title: TextFormField(
           textInputAction: TextInputAction.next,
           controller: _labelController,
+          inputFormatters: TextInputLimits.limit(TextInputLimits.name),
           decoration: InputDecoration(
             border: const OutlineInputBorder(),
             labelText: appLocalizations.name,
@@ -238,6 +235,7 @@ class _EditProfileViewState extends State<EditProfileView> {
             textInputAction: TextInputAction.next,
             keyboardType: TextInputType.url,
             controller: _urlController,
+            inputFormatters: TextInputLimits.limit(TextInputLimits.url),
             maxLines: 5,
             minLines: 1,
             decoration: InputDecoration(
@@ -255,18 +253,19 @@ class _EditProfileViewState extends State<EditProfileView> {
             },
           ),
         ),
-        ListItem.switchItem(
+        ListItem.toggle(
           title: Text(appLocalizations.autoUpdate),
-          delegate: SwitchDelegate<bool>(
-            value: _autoUpdate,
-            onChanged: _setAutoUpdate,
-          ),
+          value: _autoUpdate,
+          onChanged: _setAutoUpdate,
         ),
         if (_autoUpdate)
           ListItem(
             title: TextFormField(
               textInputAction: TextInputAction.next,
               controller: _autoUpdateDurationController,
+              inputFormatters: TextInputLimits.digitsOnly(
+                TextInputLimits.interval,
+              ),
               decoration: InputDecoration(
                 border: const OutlineInputBorder(),
                 labelText: appLocalizations.autoUpdateInterval,
@@ -325,36 +324,40 @@ class _EditProfileViewState extends State<EditProfileView> {
         },
       ),
     ];
-    return CommonPopScope(
-      onPop: (context) {
-        if (_fileData == null) {
-          return true;
-        }
-        _handleBack();
-        return false;
-      },
-      child: FloatLayout(
-        floatingWidget: FloatWrapper(
-          child: FloatingActionButton.extended(
-            heroTag: null,
-            onPressed: _handleConfirm,
-            label: Text(appLocalizations.save),
-            icon: const Icon(Icons.save),
-          ),
-        ),
-        child: Form(
-          key: _formKey,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: ListView.separated(
-              padding: kMaterialListPadding.copyWith(bottom: 72),
-              itemBuilder: (_, index) {
-                return items[index];
-              },
-              separatorBuilder: (_, _) {
-                return const SizedBox(height: 24);
-              },
-              itemCount: items.length,
+    return FocusTraversalGroup(
+      policy: PageTraversalPolicy(),
+      child: PageFocusScope(
+        child: CommonPopScope(
+          onPop: (context) {
+            if (_fileData == null) {
+              return true;
+            }
+            _handleBack();
+            return false;
+          },
+          child: FloatLayout(
+            floatingWidget: FloatWrapper(
+              child: CommonFloatingActionButton(
+                onPressed: _handleConfirm,
+                icon: const Icon(Icons.save),
+                label: appLocalizations.save,
+              ),
+            ),
+            child: Form(
+              key: _formKey,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: ListView.separated(
+                  padding: kMaterialListPadding.copyWith(bottom: 72),
+                  itemBuilder: (_, index) {
+                    return items[index];
+                  },
+                  separatorBuilder: (_, _) {
+                    return const SizedBox(height: 24);
+                  },
+                  itemCount: items.length,
+                ),
+              ),
             ),
           ),
         ),

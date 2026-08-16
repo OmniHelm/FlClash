@@ -9,6 +9,7 @@ import 'package:fl_clash/widgets/null_status.dart';
 import 'package:fl_clash/widgets/pop_scope.dart';
 import 'package:fl_clash/widgets/scaffold.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'effect.dart';
@@ -50,12 +51,10 @@ class OptionsDialog<T> extends StatelessWidget {
                     });
                   }
                   return ListItem.radio(
-                    delegate: RadioDelegate(
-                      value: option,
-                      onTab: () {
-                        Navigator.of(context).pop(option);
-                      },
-                    ),
+                    value: option,
+                    onTap: () {
+                      Navigator.of(context).pop(option);
+                    },
                     title: Text(textBuilder(option)),
                   );
                 },
@@ -102,6 +101,8 @@ class InputDialog extends StatefulWidget {
   final AutovalidateMode? autovalidateMode;
   final bool? obscureText;
   final int? maxLength;
+  final List<TextInputFormatter>? inputFormatters;
+  final TextInputType? keyboardType;
 
   const InputDialog({
     super.key,
@@ -114,6 +115,8 @@ class InputDialog extends StatefulWidget {
     this.obscureText,
     this.labelText,
     this.maxLength,
+    this.inputFormatters,
+    this.keyboardType,
     this.autovalidateMode = AutovalidateMode.onUserInteraction,
   });
 
@@ -189,8 +192,9 @@ class _InputDialogState extends State<InputDialog> {
           children: [
             TextFormField(
               maxLength: widget.maxLength,
+              inputFormatters: widget.inputFormatters,
               obscureText: widget.obscureText ?? false,
-              keyboardType: TextInputType.url,
+              keyboardType: widget.keyboardType ?? TextInputType.url,
               maxLines: widget.obscureText == true ? 1 : 5,
               minLines: 1,
               controller: _textController,
@@ -219,6 +223,7 @@ class ListInputPage extends ConsumerStatefulWidget {
   final Widget Function(String item)? subtitleBuilder;
   final Widget Function(String item)? leadingBuilder;
   final String? valueLabel;
+  final int? itemMaxLength;
 
   const ListInputPage({
     super.key,
@@ -228,6 +233,7 @@ class ListInputPage extends ConsumerStatefulWidget {
     this.leadingBuilder,
     this.valueLabel,
     this.subtitleBuilder,
+    this.itemMaxLength,
   });
 
   @override
@@ -247,13 +253,7 @@ class _ListInputPageState extends ConsumerState<ListInputPage> {
   }
 
   void _handleReorder(int oldIndex, newIndex) {
-    if (oldIndex < newIndex) {
-      newIndex -= 1;
-    }
-    final nextItems = List<String>.from(_items);
-    final item = nextItems.removeAt(oldIndex);
-    nextItems.insert(newIndex, item);
-    _items = nextItems;
+    _items = _items.copyAndReorder(oldIndex, newIndex);
     setState(() {});
   }
 
@@ -291,6 +291,7 @@ class _ListInputPageState extends ConsumerState<ListInputPage> {
           value: item ?? '',
           validator: uniqueValidator,
         ),
+        valueMaxLength: widget.itemMaxLength,
         title: item != null ? appLocalizations.edit : appLocalizations.add,
       ),
     );
@@ -447,7 +448,7 @@ class _ListInputPageState extends ConsumerState<ListInputPage> {
                     animation,
                   );
                 },
-                onReorder: _handleReorder,
+                onReorderItem: _handleReorder,
               ),
       ),
     );
@@ -462,6 +463,8 @@ class MapInputPage extends ConsumerStatefulWidget {
   final Widget Function(MapEntry<String, String> item)? leadingBuilder;
   final String? keyLabel;
   final String? valueLabel;
+  final int? keyMaxLength;
+  final int? valueMaxLength;
 
   const MapInputPage({
     super.key,
@@ -472,6 +475,8 @@ class MapInputPage extends ConsumerStatefulWidget {
     this.keyLabel,
     this.valueLabel,
     this.subtitleBuilder,
+    this.keyMaxLength,
+    this.valueMaxLength,
   });
 
   @override
@@ -491,13 +496,7 @@ class _MapInputPageState extends ConsumerState<MapInputPage> {
   }
 
   void _handleReorder(int oldIndex, newIndex) {
-    if (oldIndex < newIndex) {
-      newIndex -= 1;
-    }
-    final nextItems = List<MapEntry<String, String>>.from(_items);
-    final item = nextItems.removeAt(oldIndex);
-    nextItems.insert(newIndex, item);
-    _items = nextItems;
+    _items = _items.copyAndReorder(oldIndex, newIndex);
     setState(() {});
   }
 
@@ -543,6 +542,8 @@ class _MapInputPageState extends ConsumerState<MapInputPage> {
       child: AddDialog(
         keyField: keyField,
         valueField: valueField,
+        keyMaxLength: widget.keyMaxLength,
+        valueMaxLength: widget.valueMaxLength,
         title: item != null ? appLocalizations.edit : appLocalizations.add,
       ),
     );
@@ -702,7 +703,7 @@ class _MapInputPageState extends ConsumerState<MapInputPage> {
                     animation,
                   );
                 },
-                onReorder: _handleReorder,
+                onReorderItem: _handleReorder,
               ),
       ),
     );
@@ -713,12 +714,16 @@ class AddDialog extends StatefulWidget {
   final String title;
   final Field? keyField;
   final Field valueField;
+  final int? keyMaxLength;
+  final int? valueMaxLength;
 
   const AddDialog({
     super.key,
     required this.title,
     this.keyField,
     required this.valueField,
+    this.keyMaxLength,
+    this.valueMaxLength,
   });
 
   @override
@@ -779,6 +784,9 @@ class _AddDialogState extends State<AddDialog> {
               TextFormField(
                 maxLines: 3,
                 minLines: 1,
+                inputFormatters: widget.keyMaxLength == null
+                    ? null
+                    : TextInputLimits.limit(widget.keyMaxLength!),
                 controller: _keyController,
                 decoration: InputDecoration(
                   border: const OutlineInputBorder(),
@@ -801,6 +809,9 @@ class _AddDialogState extends State<AddDialog> {
             TextFormField(
               maxLines: 3,
               minLines: 1,
+              inputFormatters: widget.valueMaxLength == null
+                  ? null
+                  : TextInputLimits.limit(widget.valueMaxLength!),
               keyboardType: TextInputType.text,
               controller: _valueController,
               decoration: InputDecoration(

@@ -51,12 +51,21 @@ void main() {
 
   group('InitParams', () {
     test('fromJson and toJson', () {
-      final json = {'home-dir': '/data/clash', 'version': 3};
+      final json = {
+        'home-dir': '/data/clash',
+        'config-path': '/data/clash/config/config.yaml',
+        'geo-dir': '/data/clash/geo',
+        'version': 3,
+      };
       final params = InitParams.fromJson(json);
       expect(params.homeDir, '/data/clash');
+      expect(params.configPath, '/data/clash/config/config.yaml');
+      expect(params.geoDir, '/data/clash/geo');
       expect(params.version, 3);
       final restored = jsonDecode(jsonEncode(params.toJson()));
       expect(restored['home-dir'], '/data/clash');
+      expect(restored['config-path'], '/data/clash/config/config.yaml');
+      expect(restored['geo-dir'], '/data/clash/geo');
       expect(restored['version'], 3);
     });
   });
@@ -176,30 +185,6 @@ void main() {
         'data': {'method': 'test'},
       });
       expect(msg.type, InvokeMessageType.protect);
-    });
-  });
-
-  group('ActionResult', () {
-    test('toResult returns success Result for success code', () {
-      const ar = ActionResult(
-        method: ActionMethod.getConfig,
-        data: {'key': 'value'},
-        code: ResultType.success,
-      );
-      final result = ar.toResult;
-      expect(result.isSuccess, true);
-      expect(result.data, {'key': 'value'});
-    });
-
-    test('toResult returns error Result for error code', () {
-      const ar = ActionResult(
-        method: ActionMethod.getConfig,
-        data: 'something went wrong',
-        code: ResultType.error,
-      );
-      final result = ar.toResult;
-      expect(result.isSuccess, false);
-      expect(result.message, 'something went wrong');
     });
   });
 }

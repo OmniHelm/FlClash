@@ -53,9 +53,7 @@ class App {
   }
 
   Future<bool?> requestNotificationsPermission() async {
-    return methodChannel.invokeMethod<bool>(
-      'requestNotificationsPermission',
-    );
+    return methodChannel.invokeMethod<bool>('requestNotificationsPermission');
   }
 
   Future<bool> openFile(String path) async {
@@ -74,9 +72,7 @@ class App {
   }
 
   Future<bool?> tip(String? message) async {
-    return methodChannel.invokeMethod<bool>('tip', {
-      'message': '$message',
-    });
+    return methodChannel.invokeMethod<bool>('tip', {'message': '$message'});
   }
 
   Future<bool?> initShortcuts() async {
@@ -105,6 +101,17 @@ class App {
   Future<bool?> openAppSettings() async {
     if (!Platform.isAndroid) return false;
     return methodChannel.invokeMethod<bool>('openAppSettings');
+  }
+
+  Future<bool> didCrashOnPreviousExecution() async {
+    try {
+      return await methodChannel.invokeMethod<bool>(
+            'didCrashOnPreviousExecution',
+          ) ??
+          false;
+    } catch (_) {
+      return false;
+    }
   }
 }
 

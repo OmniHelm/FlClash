@@ -22,7 +22,7 @@ const _portableDownloadsDirectoryName = 'downloads';
 class AppPath {
   static AppPath? _instance;
   Completer<Directory> dataDir = Completer();
-  Completer<Directory> downloadDir = Completer();
+  Future<Directory?>? _downloadDir;
   Completer<Directory> tempDir = Completer();
   Completer<Directory> cacheDir = Completer();
   late String appDirPath;
@@ -35,13 +35,12 @@ class AppPath {
     if (_isPortable) {
       dataDir.complete(_ensureDirectory(portableDataDirPath));
       tempDir.complete(_ensureDirectory(portableTempDirPath));
-      downloadDir.complete(_ensureDirectory(portableDownloadsDirPath));
       cacheDir.complete(_ensureDirectory(portableCacheDirPath));
+      _downloadDir = _ensureDirectory(portableDownloadsDirPath);
       return;
     }
     getApplicationSupportDirectory().then(dataDir.complete);
     getTemporaryDirectory().then(tempDir.complete);
-    getDownloadsDirectory().then(downloadDir.complete);
     getApplicationCacheDirectory().then(cacheDir.complete);
   }
 
@@ -92,8 +91,8 @@ class AppPath {
   }
 
   Future<String> get downloadDirPath async {
-    final directory = await downloadDir.future;
-    return directory.path;
+    final directory = await (_downloadDir ??= getDownloadsDirectory());
+    return directory?.path ?? await homeDirPath;
   }
 
   Future<String> get homeDirPath async {

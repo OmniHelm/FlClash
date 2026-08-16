@@ -138,13 +138,11 @@ class _EditProxiesViewState extends ConsumerState<EditProxiesView>
   }
 
   void _handleReorder(int oldIndex, int newIndex) {
-    if (oldIndex < newIndex) {
-      newIndex -= 1;
-    }
     ref.read(proxyGroupProvider.notifier).update((state) {
-      final nextItems = List<String>.from(state.proxies ?? []);
-      final item = nextItems.removeAt(oldIndex);
-      nextItems.insert(newIndex, item);
+      final nextItems = (state.proxies ?? []).copyAndReorder(
+        oldIndex,
+        newIndex,
+      );
       return state.copyWith(proxies: nextItems);
     });
   }
@@ -199,7 +197,7 @@ class _EditProxiesViewState extends ConsumerState<EditProxiesView>
                 child: CommonCard(
                   radius: 20,
                   type: CommonCardType.filled,
-                  child: ListItem.switchItem(
+                  child: ListItem.toggle(
                     minTileHeight: 54,
                     title: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -226,12 +224,10 @@ class _EditProxiesViewState extends ConsumerState<EditProxiesView>
                         ),
                       ],
                     ),
-                    delegate: SwitchDelegate(
-                      value: includeAllProxies,
-                      onChanged: (_) {
-                        _handleChangeIncludeAllProxies();
-                      },
-                    ),
+                    value: includeAllProxies,
+                    onChanged: (_) {
+                      _handleChangeIncludeAllProxies();
+                    },
                   ),
                 ),
               ),
@@ -292,7 +288,7 @@ class _EditProxiesViewState extends ConsumerState<EditProxiesView>
                     animation,
                   );
                 },
-                onReorder: (int oldIndex, int newIndex) {
+                onReorderItem: (int oldIndex, int newIndex) {
                   _handleReorder(oldIndex, newIndex);
                 },
               )

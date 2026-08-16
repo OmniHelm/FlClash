@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
@@ -9,7 +9,6 @@ import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/state.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/foundation.dart';
 
 class Request {
   late final Dio dio;
@@ -113,90 +112,35 @@ class Request {
 
       final future = dio
           .get<Map<String, dynamic>>(
-        source.key,
-        cancelToken: token,
-        options: Options(responseType: ResponseType.json),
-      )
+            source.key,
+            cancelToken: token,
+            options: Options(responseType: ResponseType.json),
+          )
           .timeout(const Duration(seconds: 10));
       future
           .then((res) {
-        if (res.statusCode == HttpStatus.ok && res.data != null) {
-          completer.complete(Result.success(source.value(res.data!)));
-          return;
-        }
-        commonPrint.log('checkIp data empty', logLevel: LogLevel.info);
-        failureCount++;
-        handleFailRes();
-      })
+            if (res.statusCode == HttpStatus.ok && res.data != null) {
+              completer.complete(Result.success(source.value(res.data!)));
+              return;
+            }
+            commonPrint.log('checkIp data empty', logLevel: LogLevel.info);
+            failureCount++;
+            handleFailRes();
+          })
           .catchError((e) {
-        failureCount++;
-        if (e is DioException && e.type == DioExceptionType.cancel) {
-          completer.complete(Result.error('cancelled'));
-          return;
-        }
-        commonPrint.log('checkIp error $e', logLevel: LogLevel.warning);
-        handleFailRes();
-      });
+            failureCount++;
+            if (e is DioException && e.type == DioExceptionType.cancel) {
+              completer.complete(Result.error('cancelled'));
+              return;
+            }
+            commonPrint.log('checkIp error $e', logLevel: LogLevel.warning);
+            handleFailRes();
+          });
       return completer.future;
     });
     final res = await Future.any(futures);
     token.cancel();
     return res;
-  }
-
-  Future<bool> pingHelper() async {
-    if (kDebugMode) return true;
-    try {
-      final response = await dio
-          .get(
-        'http://$localhost:$helperPort/ping',
-        options: Options(responseType: ResponseType.plain),
-      )
-          .timeout(const Duration(milliseconds: 2000));
-      if (response.statusCode != HttpStatus.ok) {
-        return false;
-      }
-      return (response.data as String) == globalState.coreSHA256;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  Future<bool> startCoreByHelper(String arg) async {
-    try {
-      final response = await dio
-          .post(
-        'http://$localhost:$helperPort/start',
-        data: json.encode({'path': appPath.corePath, 'arg': arg}),
-        options: Options(responseType: ResponseType.plain),
-      )
-          .timeout(const Duration(milliseconds: 2000));
-      if (response.statusCode != HttpStatus.ok) {
-        return false;
-      }
-      final data = response.data as String;
-      return data.isEmpty;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  Future<bool> stopCoreByHelper() async {
-    try {
-      final response = await dio
-          .post(
-        'http://$localhost:$helperPort/stop',
-        options: Options(responseType: ResponseType.plain),
-      )
-          .timeout(const Duration(milliseconds: 2000));
-      if (response.statusCode != HttpStatus.ok) {
-        return false;
-      }
-      final data = response.data as String;
-      return data.isEmpty;
-    } catch (_) {
-      return false;
-    }
   }
 }
 

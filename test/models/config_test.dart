@@ -17,6 +17,79 @@ T roundTrip<T>(
 }
 
 void main() {
+  group('GeoResource JSON', () {
+    test('exposes mihomo raw config keys', () {
+      expect(GeoResource.MMDB.configKey, 'mmdb');
+      expect(GeoResource.ASN.configKey, 'asn');
+      expect(GeoResource.GEOIP.configKey, 'geoip');
+      expect(GeoResource.GEOSITE.configKey, 'geosite');
+    });
+
+    test('parses canonical GeoResource keys from config JSON', () {
+      final config = PatchClashConfig.fromJson({
+        'geox-url': {
+          'mmdb': 'https://example.com/mmdb',
+          'asn': 'https://example.com/asn.mmdb',
+          'geoip': 'https://example.com/geoip.dat',
+          'geosite': 'https://example.com/geosite.dat',
+        },
+      });
+
+      expect(config.geoXUrl, {
+        GeoResource.MMDB: 'https://example.com/mmdb',
+        GeoResource.ASN: 'https://example.com/asn.mmdb',
+        GeoResource.GEOIP: 'https://example.com/geoip.dat',
+        GeoResource.GEOSITE: 'https://example.com/geosite.dat',
+      });
+    });
+
+    test('parses hyphenated GeoResource keys from config JSON', () {
+      final config = PatchClashConfig.fromJson({
+        'geox-url': {
+          'geo-ip': 'https://example.com/legacy-geoip.dat',
+          'geo-site': 'https://example.com/legacy-geosite.dat',
+        },
+      });
+
+      expect(config.geoXUrl, {
+        GeoResource.GEOIP: 'https://example.com/legacy-geoip.dat',
+        GeoResource.GEOSITE: 'https://example.com/legacy-geosite.dat',
+      });
+    });
+
+    test('GeoXUrl defaults use GeoResource keys', () {
+      expect(defaultGeoXUrl.keys, GeoResource.values);
+    });
+
+    test('PatchClashConfig serializes geoXUrl map with lowercase keys', () {
+      final json = const PatchClashConfig(
+        geoXUrl: {GeoResource.GEOIP: 'https://example.com/geoip.dat'},
+      ).toJson();
+
+      expect(json['geox-url'], {'geoip': 'https://example.com/geoip.dat'});
+    });
+
+    test('converts geoXUrl map to raw config map', () {
+      const geoXUrl = {
+        GeoResource.MMDB: 'https://example.com/mmdb',
+        GeoResource.GEOSITE: 'https://example.com/geosite.dat',
+      };
+
+      expect(geoXUrl.raw, {
+        'mmdb': 'https://example.com/mmdb',
+        'geosite': 'https://example.com/geosite.dat',
+      });
+    });
+
+    test('PatchClashConfig parses geoXUrl map with GeoResource keys', () {
+      final config = PatchClashConfig.fromJson({
+        'geox-url': {'mmdb': 'https://example.com/mmdb'},
+      });
+
+      expect(config.geoXUrl, {GeoResource.MMDB: 'https://example.com/mmdb'});
+    });
+  });
+
   group('AppSettingProps JSON round-trip', () {
     test('default values survive round-trip', () {
       const props = AppSettingProps();
@@ -35,6 +108,7 @@ void main() {
       expect(restored.showLabel, false);
       expect(restored.minimizeOnExit, true);
       expect(restored.restoreStrategy, RestoreStrategy.compatible);
+      expect(restored.customUserAgent, '');
       expect(restored.testUrl, defaultTestUrl);
     });
 
@@ -45,6 +119,7 @@ void main() {
         autoLaunch: true,
         closeConnections: false,
         testUrl: 'https://custom.test',
+        customUserAgent: 'CustomUA/1.0',
       );
       final restored = roundTrip(
         () => props.toJson(),
@@ -55,6 +130,7 @@ void main() {
       expect(restored.autoLaunch, true);
       expect(restored.closeConnections, false);
       expect(restored.testUrl, 'https://custom.test');
+      expect(restored.customUserAgent, 'CustomUA/1.0');
     });
 
     test('safeFromJson returns default on null', () {
@@ -162,6 +238,41 @@ void main() {
     });
   });
 
+  group('PatchClashConfig JSON round-trip', () {
+    test('defaults match Clash patch defaults', () {
+      const config = PatchClashConfig();
+
+      expect(config.mixedPort, defaultMixedPort);
+      expect(config.allowLan, false);
+      expect(config.mode, Mode.rule);
+      expect(config.externalController, ExternalControllerStatus.close);
+      expect(config.geodataLoader, GeodataLoader.memconservative);
+    });
+
+    test('custom values survive round-trip', () {
+      const config = PatchClashConfig(
+        mixedPort: 7890,
+        allowLan: true,
+        mode: Mode.rule,
+        logLevel: LogLevel.debug,
+        externalController: ExternalControllerStatus.open,
+        geodataLoader: GeodataLoader.memconservative,
+      );
+
+      final restored = roundTrip(
+        () => config.toJson(),
+        PatchClashConfig.fromJson,
+      );
+
+      expect(restored.mixedPort, 7890);
+      expect(restored.allowLan, true);
+      expect(restored.mode, Mode.rule);
+      expect(restored.logLevel, LogLevel.debug);
+      expect(restored.externalController, ExternalControllerStatus.open);
+      expect(restored.geodataLoader, GeodataLoader.memconservative);
+    });
+  });
+
   group('ProxiesStyleProps JSON round-trip', () {
     test('default values', () {
       const props = ProxiesStyleProps();
@@ -237,6 +348,46 @@ void main() {
   });
 
   group('Config composite serialization', () {
+    test('DAVProps obfuscates and restores its password', () {
+      const props = DAVProps(
+        uri: 'https://dav.example.com',
+        user: 'user',
+        password: '密碼-🔐',
+      );
+
+      final json = props.toJson();
+
+      expect(json['password'], startsWith('v1.'));
+      expect(json['password'], isNot(contains('密碼')));
+      expect(DAVProps.fromJson(json), props);
+      expect(props.toString(), isNot(contains('密碼')));
+      expect(props.toString(), contains('password: ***'));
+    });
+
+    test('DAVProps accepts and rewrites a legacy plain-text password', () {
+      final props = DAVProps.fromJson({
+        'uri': 'https://dav.example.com',
+        'user': 'user',
+        'password': 'legacy-secret',
+        'fileName': 'backup.zip',
+      });
+
+      expect(props.password, 'legacy-secret');
+      expect(props.toJson()['password'], startsWith('v1.'));
+      expect(props.toJson()['password'], isNot(contains('legacy-secret')));
+    });
+
+    test('DAVProps rejects a damaged obfuscated password', () {
+      final props = DAVProps.fromJson({
+        'uri': 'https://dav.example.com',
+        'user': 'user',
+        'password': 'v1.invalid.invalid',
+        'fileName': 'backup.zip',
+      });
+
+      expect(props.password, isEmpty);
+    });
+
     test('default Config round-trip', () {
       const config = Config(themeProps: ThemeProps());
       final restored = roundTrip(() => config.toJson(), Config.fromJson);

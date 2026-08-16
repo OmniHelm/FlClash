@@ -22,14 +22,26 @@ void main() {
     container.dispose();
   });
 
-  group('RealTunEnable provider', () {
-    test('default is false', () {
-      expect(container.read(realTunEnableProvider), false);
+  group('AuthorizedTunEnable provider', () {
+    test('default is none', () {
+      expect(
+        container.read(authorizedTunEnableProvider),
+        TunAuthorizationState.none,
+      );
     });
 
-    test('can update to true', () {
-      container.read(realTunEnableProvider.notifier).update((_) => true);
-      expect(container.read(realTunEnableProvider), true);
+    test('can store authorized and unauthorized results', () {
+      final notifier = container.read(authorizedTunEnableProvider.notifier);
+      notifier.update((_) => TunAuthorizationState.authorized);
+      expect(
+        container.read(authorizedTunEnableProvider),
+        TunAuthorizationState.authorized,
+      );
+      notifier.update((_) => TunAuthorizationState.unauthorized);
+      expect(
+        container.read(authorizedTunEnableProvider),
+        TunAuthorizationState.unauthorized,
+      );
     });
   });
 
@@ -49,6 +61,42 @@ void main() {
       container.read(packagesProvider.notifier).update((_) => [pkg]);
       expect(container.read(packagesProvider).length, 1);
       expect(container.read(packagesProvider).first.packageName, 'test.app');
+    });
+  });
+
+  group('Providers provider', () {
+    test('setProvider replaces provider with matching name', () {
+      final oldProvider = ExternalProvider(
+        name: 'Proxy',
+        type: 'Proxy',
+        count: 1,
+        vehicleType: 'HTTP',
+        updateAt: DateTime(2026),
+      );
+      final newProvider = oldProvider.copyWith(count: 2);
+      container.read(providersProvider.notifier).update((_) => [oldProvider]);
+
+      container.read(providersProvider.notifier).setProvider(newProvider);
+
+      expect(container.read(providersProvider).single.count, 2);
+    });
+
+    test('setProvider ignores null and missing provider names', () {
+      final provider = ExternalProvider(
+        name: 'Proxy',
+        type: 'Proxy',
+        count: 1,
+        vehicleType: 'HTTP',
+        updateAt: DateTime(2026),
+      );
+      container.read(providersProvider.notifier).update((_) => [provider]);
+
+      container.read(providersProvider.notifier).setProvider(null);
+      container
+          .read(providersProvider.notifier)
+          .setProvider(provider.copyWith(name: 'Other', count: 9));
+
+      expect(container.read(providersProvider).single, provider);
     });
   });
 
@@ -171,17 +219,6 @@ void main() {
     });
   });
 
-  group('BackBlock provider', () {
-    test('default is false', () {
-      expect(container.read(backBlockProvider), false);
-    });
-
-    test('can update', () {
-      container.read(backBlockProvider.notifier).update((_) => true);
-      expect(container.read(backBlockProvider), true);
-    });
-  });
-
   group('Version provider', () {
     test('default is 0', () {
       expect(container.read(versionProvider), 0);
@@ -221,9 +258,72 @@ void main() {
       expect(container.read(checkIpNumProvider), 0);
     });
 
-    test('increment works', () {
-      container.read(checkIpNumProvider.notifier).update((_) => 3);
-      expect(container.read(checkIpNumProvider), 3);
+    test('increment returns previous value and updates state', () {
+      final value = container.read(checkIpNumProvider.notifier).add();
+
+      expect(value, 0);
+      expect(container.read(checkIpNumProvider), 1);
+    });
+  });
+
+  group('SortNum provider', () {
+    test('increment returns previous value and updates state', () {
+      final value = container.read(sortNumProvider.notifier).add();
+
+      expect(value, 0);
+      expect(container.read(sortNumProvider), 1);
+    });
+  });
+
+  group('DelayDataSource provider', () {
+    test('sets delay by url and proxy name', () {
+      container
+          .read(delayDataSourceProvider.notifier)
+          .setDelay(
+            const Delay(name: 'Proxy', url: 'https://test.example', value: 120),
+          );
+
+      expect(container.read(delayDataSourceProvider), {
+        'https://test.example': {'Proxy': 120},
+      });
+    });
+
+    test('keeps same state instance when delay value is unchanged', () {
+      final notifier = container.read(delayDataSourceProvider.notifier);
+      const delay = Delay(name: 'Proxy', url: 'https://test.example', value: 1);
+      notifier.setDelay(delay);
+      final state = container.read(delayDataSourceProvider);
+
+      notifier.setDelay(delay);
+
+      expect(identical(container.read(delayDataSourceProvider), state), isTrue);
+    });
+  });
+
+  group('Loading provider', () {
+    test('stop without start sets loading false immediately', () async {
+      final notifier = container.read(
+        loadingProvider(LoadingTag.profiles).notifier,
+      );
+
+      await notifier.stop();
+
+      expect(container.read(loadingProvider(LoadingTag.profiles)), false);
+    });
+
+    test('stop keeps loading visible for minimum duration', () async {
+      final notifier = container.read(
+        loadingProvider(LoadingTag.profiles).notifier,
+      );
+
+      notifier.start();
+      await notifier.stop();
+
+      expect(container.read(loadingProvider(LoadingTag.profiles)), true);
+
+      await Future.delayed(const Duration(milliseconds: 1100));
+
+      expect(container.read(loadingProvider(LoadingTag.profiles)), false);
     });
   });
 

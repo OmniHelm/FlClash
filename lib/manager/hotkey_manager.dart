@@ -37,7 +37,7 @@ class _HotKeyManagerState extends ConsumerState<HotKeyManager> {
       case HotAction.mode:
         commonAction.updateMode();
       case HotAction.start:
-        commonAction.updateStart();
+        commonAction.toggleRunning();
       case HotAction.view:
         systemAction.updateVisible();
       case HotAction.proxy:
@@ -73,18 +73,23 @@ class _HotKeyManagerState extends ConsumerState<HotKeyManager> {
     await Future.wait(hotkeyActionHandles);
   }
 
-  Shortcuts _buildShortcuts(Widget child) {
+  Shortcuts _buildCloseShortcuts(Widget child) {
     return Shortcuts(
       shortcuts: {
         utils.controlSingleActivator(LogicalKeyboardKey.keyW):
             const CloseWindowIntent(),
+        const SingleActivator(LogicalKeyboardKey.escape):
+            const EscapeBackIntent(),
       },
       child: Actions(
         actions: {
           CloseWindowIntent: CallbackAction<CloseWindowIntent>(
             onInvoke: (_) => globalState.container
                 .read(systemActionProvider.notifier)
-                .handleBackOrExit(),
+                .handleClose(false),
+          ),
+          EscapeBackIntent: CallbackAction<EscapeBackIntent>(
+            onInvoke: (_) => globalState.navigatorKey.currentState?.maybePop(),
           ),
           DoNothingIntent: CallbackAction<DoNothingIntent>(
             onInvoke: (_) => null,
@@ -97,6 +102,6 @@ class _HotKeyManagerState extends ConsumerState<HotKeyManager> {
 
   @override
   Widget build(BuildContext context) {
-    return _buildShortcuts(widget.child);
+    return _buildCloseShortcuts(widget.child);
   }
 }

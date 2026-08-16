@@ -88,8 +88,8 @@ class ProviderItem extends StatelessWidget {
     final ref = globalState.container;
     await globalState.safeRun<void>(() async {
       final platformFile = await picker.pickerFile();
-      final bytes = platformFile?.bytes;
-      if (bytes == null || provider.path == null) return;
+      if (platformFile == null || provider.path == null) return;
+      final bytes = await platformFile.readBytes();
       await File(provider.path!).safeWriteAsBytes(bytes);
       final providerName = provider.name;
       final message = await coreController.sideLoadExternalProvider(
@@ -110,7 +110,7 @@ class ProviderItem extends StatelessWidget {
     final count = provider.count;
     return switch (count == 0) {
       true => baseInfo,
-      false => '$baseInfo  ·  $count${context.appLocalizations.entries}',
+      false => '$baseInfo  ·  ${context.appLocalizations.entriesCount(count)}',
     };
   }
 
@@ -133,6 +133,7 @@ class ProviderItem extends StatelessWidget {
             runSpacing: 6,
             spacing: 12,
             runAlignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               CommonChip(
                 avatar: const Icon(Icons.upload),
@@ -151,7 +152,7 @@ class ProviderItem extends StatelessWidget {
                             width: 30,
                             child: Padding(
                               padding: EdgeInsets.all(2),
-                              child: CircularProgressIndicator(),
+                              child: CommonCircleLoading(),
                             ),
                           )
                         : CommonChip(

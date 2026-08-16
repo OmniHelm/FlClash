@@ -79,7 +79,7 @@ ArgParser createSetupArgParser() {
     ..addOption(
       'env',
       defaultsTo: 'pre',
-      allowed: ['pre', 'stable'],
+      allowed: ['dev', 'pre', 'stable'],
       help: 'Application environment',
     )
     ..addOption(
@@ -115,6 +115,10 @@ List<String> createFlutterBuildArgs({
   return flutterBuildArgs;
 }
 
+Map<String, String> createBuildEnvironment(String env) {
+  return {'APP_ENV': env};
+}
+
 String _getTargets(String platform, String arch, String? customTargets) {
   if (customTargets != null) return customTargets;
   if (platform == 'linux' && arch == 'amd64') return 'deb,appimage,rpm';
@@ -140,33 +144,8 @@ Future<int> _package(
   String? androidArch,
   required bool verbose,
 }) async {
-  final distributorDir = p.join(
-    rootDir,
-    'plugins',
-    'flutter_distributor',
-    'packages',
-    'flutter_distributor',
-  );
-  final activateResult = await Process.run('dart', [
-    'pub',
-    'global',
-    'activate',
-    '-s',
-    'path',
-    distributorDir,
-  ]);
-  if (activateResult.exitCode != 0) {
-    stderr.write(activateResult.stderr);
-    return activateResult.exitCode;
-  }
-
-  final coreSha256 = platform == 'windows' ? await _buildGoCore(rootDir) : null;
-
   final file = File(p.join(rootDir, 'env.json'));
-
-  await file.writeAsString(
-    jsonEncode({'APP_ENV': env, 'CORE_SHA256': ?coreSha256}),
-  );
+  await file.writeAsString(jsonEncode(createBuildEnvironment(env)));
 
   final flutterBuildArgs = createFlutterBuildArgs(
     platform: platform,
@@ -179,6 +158,23 @@ Future<int> _package(
 
   final depExit = await _ensureDependencies(platform, arch);
   if (depExit != 0) return depExit;
+
+  final activateResult = await Process.run('dart', [
+    'pub',
+    'global',
+    'activate',
+    '-s',
+    'git',
+    'https://github.com/chen08209/flutter_distributor.git',
+    '--git-ref',
+    'FlClash',
+    '--git-path',
+    'packages/flutter_distributor',
+  ]);
+  if (activateResult.exitCode != 0) {
+    stderr.write(activateResult.stderr);
+    return activateResult.exitCode;
+  }
 
   final process = await Process.start(
     'flutter_distributor',
@@ -227,32 +223,6 @@ bool _targetsIncludeZip(String targets) {
       .split(',')
       .map((target) => target.trim().toLowerCase())
       .contains('zip');
-}
-
-Future<String?> _buildGoCore(String rootDir) async {
-  final buildToolDir = p.join(
-    rootDir,
-    'plugins',
-    'setup',
-    'buildkit',
-    'build_tool',
-  );
-  final result = await Process.run('dart', [
-    'run',
-    'build_tool',
-    'windows',
-    '--root-dir',
-    rootDir,
-  ], workingDirectory: buildToolDir);
-  if (result.exitCode != 0) {
-    stderr.write(result.stderr);
-    return null;
-  }
-  final shaFile = File(p.join(rootDir, 'core_sha256.json'));
-  if (!shaFile.existsSync()) return null;
-  final content =
-      jsonDecode(shaFile.readAsStringSync()) as Map<String, dynamic>;
-  return content['CORE_SHA256'] as String?;
 }
 
 Future<bool> _markWindowsZipPortable(String rootDir) async {
@@ -306,9 +276,6 @@ Future<void> _addPortableFlagToZip(File zipFile) async {
   }
 
   final encoded = ZipEncoder().encode(archive);
-  if (encoded == null) {
-    throw 'Failed to encode portable zip';
-  }
   await zipFile.writeAsBytes(encoded, flush: true);
 }
 
@@ -360,6 +327,7 @@ Future<int> _ensureLinuxDependencies(String arch) async {
     ['ninja-build', 'libgtk-3-dev'],
     ['libayatana-appindicator3-dev'],
     ['libkeybinder-3.0-dev'],
+    ['libsecret-1-dev'],
     ['locate'],
   ];
   if (arch == 'amd64') {
