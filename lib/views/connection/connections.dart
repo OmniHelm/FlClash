@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/core/controller.dart';
+import 'package:fl_clash/core/method.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
@@ -53,7 +54,7 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (mounted) {
         await _updateConnections();
-        timer = Timer(Duration(seconds: 1), () async {
+        timer = Timer(const Duration(seconds: 1), () async {
           _updateConnectionsTask();
         });
       }
@@ -67,13 +68,19 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
   }
 
   Future<void> _updateConnections() async {
-    _connectionsStateNotifier.value = _connectionsStateNotifier.value.copyWith(
-      trackerInfos: await coreController.getConnections(),
-    );
+    try {
+      _connectionsStateNotifier.value = _connectionsStateNotifier.value
+          .copyWith(trackerInfos: await coreController.getConnections());
+    } catch (error) {
+      commonPrint.log(
+        'updateConnections error: $error',
+        logLevel: coreFailureLogLevel(error),
+      );
+    }
   }
 
   Future<void> _handleBlockConnection(String id) async {
-    coreController.closeConnection(id);
+    await coreController.closeConnection(id);
     await _updateConnections();
   }
 
@@ -88,6 +95,7 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
 
   @override
   Widget build(BuildContext context) {
+    final appLocalizations = context.appLocalizations;
     return CommonScaffold(
       title: appLocalizations.connections,
       onKeywordsUpdate: _onKeywordsUpdate,
@@ -100,7 +108,7 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
           if (connections.isEmpty) {
             return NullStatus(
               label: appLocalizations.nullTip(appLocalizations.connections),
-              illustration: ConnectionEmptyIllustration(),
+              illustration: const ConnectionEmptyIllustration(),
             );
           }
           final items = connections

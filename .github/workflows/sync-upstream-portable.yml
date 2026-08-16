@@ -78,8 +78,14 @@ jobs:
           if git ls-remote --exit-code --heads origin "${branch_name}" >/dev/null 2>&1; then
             git fetch origin "${branch_name}"
             if git merge-base --is-ancestor "${upstream_sha}" "origin/${branch_name}"; then
-              echo "sync_needed=false" >> "$GITHUB_OUTPUT"
-              echo "Existing sync branch already contains ${UPSTREAM_REPOSITORY}@${upstream_short_sha}."
+              git checkout -B "${branch_name}" "origin/${branch_name}"
+              if git diff --quiet origin/main.."${branch_name}"; then
+                echo "sync_needed=false" >> "$GITHUB_OUTPUT"
+                echo "Existing sync branch contains ${UPSTREAM_REPOSITORY}@${upstream_short_sha}, but has no fork-visible changes."
+                exit 0
+              fi
+              echo "sync_needed=true" >> "$GITHUB_OUTPUT"
+              echo "Reusing existing sync branch containing ${UPSTREAM_REPOSITORY}@${upstream_short_sha}."
               exit 0
             fi
           fi
@@ -125,14 +131,28 @@ jobs:
           EOF
           )"
 
-          if pr_url="$(gh pr view "${BRANCH_NAME}" --json url --jq .url 2>/dev/null)"; then
-            gh pr edit "${BRANCH_NAME}" --title "${title}" --body "${body}"
+          repo="${GITHUB_REPOSITORY}"
+          pr_url="$(gh pr list \
+            --repo "${repo}" \
+            --head "${BRANCH_NAME}" \
+            --state open \
+            --json url \
+            --jq '.[0].url // ""')"
+
+          if [ -n "${pr_url}" ]; then
+            if ! gh pr edit "${pr_url}" --title "${title}" --body "${body}"; then
+              echo "::warning::Failed to update existing pull request ${pr_url}."
+            fi
           else
-            pr_url="$(gh pr create \
-              --base main \
-              --head "${BRANCH_NAME}" \
-              --title "${title}" \
-              --body "${body}")"
+            if ! pr_url="$(gh pr create \
+                --repo "${repo}" \
+                --base main \
+                --head "${BRANCH_NAME}" \
+                --title "${title}" \
+                --body "${body}")"; then
+              echo "::warning::Failed to create pull request. Continuing so the portable build can run."
+              pr_url=""
+            fi
           fi
 
           echo "pr_url=${pr_url}" >> "$GITHUB_OUTPUT"
@@ -152,7 +172,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24.0'
+          go-version: '1.26.4'
           cache-dependency-path: |
             core/go.sum
 
@@ -160,7 +180,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: 3.35.7
+          flutter-version: 3.44.4
           cache: true
 
       - name: Get Flutter Dependency
@@ -169,13 +189,14 @@ jobs:
           flutter pub get
 
       - name: Build Windows portable package
-        run: dart setup.dart windows --arch amd64 --env stable
+        run: dart setup.dart windows --env stable
 
       - name: Upload Windows portable artifact
         uses: actions/upload-artifact@v4
         with:
           name: artifact-windows-portable-${{ needs.sync-upstream.outputs.upstream_short_sha }}
           path: ./dist
+          if-no-files-found: error
           overwrite: true
 
   comment-build-result:
@@ -195,6 +216,11 @@ jobs:
           ARTIFACT_NAME: artifact-windows-portable-${{ needs.sync-upstream.outputs.upstream_short_sha }}
         run: |
           set -euo pipefail
+
+          if [ -z "${PR_URL}" ]; then
+            echo "No pull request URL was produced; skipping build result comment."
+            exit 0
+          fi
 
           gh pr comment "${PR_URL}" --body "$(cat <<EOF
           Windows portable build result: ${BUILD_RESULT}
